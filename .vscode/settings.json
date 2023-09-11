@@ -1,0 +1,18 @@
+{
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    }
+  },
+  "python.testing.pytestArgs": [
+    "tests",
+    "--no-cov"
+    // --no-cov: Ensure the VSCode debugger keeps stopping on breakpoints
+    //           see https://github.com/Microsoft/vscode-python/issues/693 for details
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "files.eol": "\n",
+  "editor.formatOnSave": true
+}

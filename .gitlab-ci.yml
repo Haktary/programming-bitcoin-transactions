@@ -1,0 +1,50 @@
+stages:
+  - qa
+  - release
+
+.python:
+  variables:
+    PYTHONVERSION: "3.11"
+  image: python:$PYTHONVERSION
+  tags:
+    - docker
+  before_script:
+    - export POETRY_VERSION=1.6.1
+    - curl -sSL https://install.python-poetry.org | python3 -
+    - export PATH=$HOME/.local/bin:$PATH
+
+.nox:
+  stage: qa
+  extends: .python
+  variables:
+    NOXSESSION: "$JOB"
+  script:
+    - python -m pip install nox
+    - nox
+  cache:
+    paths:
+      - .nox
+
+qa:
+  extends: .nox
+  parallel:
+    matrix:
+      - JOB: [lint, safety, mypy]
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[skip-qa\]/
+
+test:
+  extends: .nox
+  variables:
+    NOXSESSION: test
+  artifacts:
+    reports:
+      junit: .local/test_report/test_report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: .local/test_report/coverage.xml
+  coverage: '/Total coverage: \d+\.\d+/'
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[skip-test\]/

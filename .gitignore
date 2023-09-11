@@ -1,0 +1,9 @@
+.venv
+.local
+__pycache__
+*.pyc
+dist
+MANIFEST
+*.egg-info
+.nox
+.python-version
