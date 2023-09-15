@@ -12,7 +12,7 @@ from btctoy.utils.logging import (
 
 LOGGER = get_logger()
 
-Stack = list[int | bytes]  # int for an operation, bytes for an element
+Stack = list[int | bytes] 
 
 
 def encode_num(num: int) -> bytes:
@@ -24,9 +24,7 @@ def encode_num(num: int) -> bytes:
     while abs_num:
         result.append(abs_num & 0xFF)
         abs_num >>= 8
-    # if the top bit is set,
-    # for negative numbers we ensure that the top bit is set
-    # for positive numbers we ensure that the top bit is not set
+
     if result[-1] & 0x80:
         if negative:
             result.append(0x80)
@@ -40,9 +38,8 @@ def encode_num(num: int) -> bytes:
 def decode_num(element: bytes) -> int:
     if element == b"":
         return 0
-    # reverse for big endian
+
     big_endian = element[::-1]
-    # top bit being 1 means it's negative
     if big_endian[0] & 0x80:
         negative = True
         result = big_endian[0] & 0x7F
@@ -164,7 +161,6 @@ def op_if(stack, items):
     while len(items) > 0:
         item = items.pop(0)
         if item in (99, 100):
-            # nested if, we have to go another endif
             num_endifs_needed += 1
             current_array.append(item)
         elif num_endifs_needed == 1 and item == 103:
@@ -191,7 +187,7 @@ def op_if(stack, items):
 def op_notif(stack, items):
     if len(stack) < 1:
         return False
-    # go through and re-make the items array based on the top stack element
+
     true_items = []
     false_items = []
     current_array = true_items
@@ -200,7 +196,6 @@ def op_notif(stack, items):
     while len(items) > 0:
         item = items.pop(0)
         if item in (99, 100):
-            # nested if, we have to go another endif
             num_endifs_needed += 1
             current_array.append(item)
         elif num_endifs_needed == 1 and item == 103:
@@ -638,12 +633,12 @@ def op_sha256(stack):
 
 
 def op_hash160(stack):
-    # check that there's at least 1 element on the stack
+
     if len(stack) < 1:
         return False
-    # pop off the top element from the stack
+    
     element = stack.pop()
-    # push a hash160 of the popped off element to the stack
+    
     h160 = hash160(element)
     stack.append(h160)
     return True
@@ -658,15 +653,24 @@ def op_hash256(stack):
 
 
 def op_checksig(stack, z):
-    # TODO compléter la fonction en suivant les instructions:
-    # - check that there are at least 2 elements on the stack
-    # - the top element of the stack is the SEC pubkey, pop it
-    # - the next element of the stack is the DER signature, pop it
-    # - take off the last byte of the signature as that's the hash_type
-    # - parse the serialized pubkey as a S256Point and the DER signature as a Signature in a try except block. Return False if it fails
-    # - use point.verify to check that the signature matches z. Append encode_num(1) if it does, append encode_num(0) if it does'nt
-    # - return True
-    pass
+
+    if len(stack) < 2:
+        return False
+
+    sec_pubkey = stack.pop()
+    
+    der_signature = stack.pop()[:-1]
+    try:
+        point = S256Point.parse(sec_pubkey)
+        sig = Signature.parse(der_signature)
+    except (ValueError, SyntaxError) as e:
+        LOGGER.info(e)
+        return False
+    if point.verify(z, sig):
+        stack.append(encode_num(1))
+    else:
+        stack.append(encode_num(0))
+    return True
 
 
 def op_checksigverify(stack, z):

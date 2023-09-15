@@ -49,8 +49,8 @@ logger = get_logger()
 
 ENVVAR_SECRET_PASSPHRASE = f"{ENVVAR_PREFIX}_SECRET_PASSPHRASE"
 
-load_dotenv(".env")  # shared environment configuration
-load_dotenv(Path(".local") / ".env")  # private environment configuration
+load_dotenv(".env")
+load_dotenv(Path(".local") / ".env") 
 
 
 @app.callback()
@@ -82,11 +82,9 @@ def about() -> None:
 
 
 def make_private_key(passphrase: str) -> PrivateKey:
-    # TODO implementation
-    # 1. On applique hash256 sur passphrase.encode() (hash256 prend un paramètre un tableau d'octets, pas une str)
-    # 2. On applique little_endian_to_int() sur le résultat
-    # 3. On construit un objet de type PrivateKey et on le return
-    ...
+    binary_passphrase = passphrase.encode()
+    secret = little_endian_to_int(hash256(binary_passphrase))
+    return PrivateKey(secret)
 
 
 @app.command()
@@ -125,23 +123,32 @@ def send(
     pk = make_private_key(config.secret_passphrase)
 
     target_address = "mpLwne78PN7KyQgSvApvu4yTXFc3dn74xL"
+    target_h160 = decode_base58_checksum(target_address)
 
-    # TODO implementation
-    # 1. stocker dans une variable target_h160 le hash160 de l'addresse cible en utilisant decode_base58_checksum()
-    # 2. stocker dans une variable my_h160 le hash160 de pk en utilisant pk.point.hash160(compressed=True)
-    # 3. stocker dans prev_tx_id la conversion de input_tx_id en bytes calculée avec avec bytes.fromhex
-    # 4. stocker dans tx_in une instance de TxIn initialisé avec prev_tx_id et input_utxo_index
-    # 5. calculer dans prev_utxo_value la valeur de la tx_in avec la methode value() évaluée sur le testnet
+    my_address = pk.point.address(compressed=True, testnet=True)
+    my_h160 = decode_base58_checksum(my_address)
+
+    prev_tx_id = bytes.fromhex(input_tx_id)
+    prev_tx_index = input_utxo_index
+
+    tx_in = TxIn(prev_tx_id, prev_tx_index)
+    prev_utxo_value = tx_in.value(testnet=True)
 
     target_amount = int(0.6 * prev_utxo_value)
-    fee = 1500  # 1500 sats, à adapter selon les besoins (aller plus vite, ou pas assez d'argent)
+    fee = 1500
 
-    # 6. stocker dans tx_out_0 une instance de TxOut initialisée avec target_amount et un script p2pkh payant target_address (p2pkh_script(target_h160))
-    # 7. stocker dans tx_out_1 une instance de TxOut initialisée avec prev_utxo_value - target_amount - fee et rendant la monnaie (p2pkh_script(my_h160))
-    # 8. stocker dans tx une instance de Tx ayant pour version 1, les inputs qu'on a défini, les outputs qu'on a défini, un locktime à 0 et sur le testnet
-    # 9. signer l'input 0 de tx avec la clef privée
+    tx_out_0 = TxOut(target_amount, p2pkh_script(target_h160))
+    tx_out_1 = TxOut(prev_utxo_value - target_amount - fee, p2pkh_script(my_h160))
 
-    # On affiche la transaction encodée en hexadecimal et on l'envoie sur https://live.blockcypher.com/btc/pushtx/
+    tx = Tx(
+        version=1,
+        tx_ins=[tx_in],
+        tx_outs=[tx_out_0, tx_out_1],
+        locktime=0,
+        testnet=True,
+    )
+    tx.sign_input(0, pk)
+
     typer.echo(tx.serialize().hex())
 
 
